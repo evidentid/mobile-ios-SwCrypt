@@ -623,9 +623,9 @@ open class CC {
 
 	public static func generateRandom(_ size: Int) -> Data {
 		var data = Data(count: size)
-		data.withUnsafeMutableBytes { dataBytes in
-			_ = CCRandomGenerateBytes!(dataBytes, size)
-		}
+        data.withUnsafeMutableBytes { dataBytes in
+            _ = CCRandomGenerateBytes!(dataBytes.baseAddress!, size)
+        }
 		return data
 	}
 
@@ -761,7 +761,7 @@ open class CC {
 		status = result.withUnsafeMutableBytes { resultBytes in
 			return CCCryptorFinal!(
 				cryptor!,
-				resultBytes + updateLen,
+                resultBytes.baseAddress! + updateLen,
 				rescount - updateLen,
 				&finalLen)
 		}
@@ -951,7 +951,7 @@ open class CC {
 								 key: Data, iv: Data,
 								 aData: Data, tagLength: Int) throws -> (Data, Data) {
 			var cryptor: CCCryptorRef? = nil
-			var status = key.withUnsafeBytes { keyBytes in
+            var status = key.withUnsafeBytes { keyBytes in
 				return CCCryptorCreateWithMode!(
 					opMode.rawValue, AuthBlockMode.ccm.rawValue,
 					algorithm.rawValue, Padding.noPadding.rawValue,
@@ -991,7 +991,8 @@ open class CC {
 
 			var finalLen: size_t = 0
 			status = result.withUnsafeMutableBytes { resultBytes in
-				return CCCryptorFinal!(cryptor!, resultBytes + updateLen,
+				return CCCryptorFinal!(cryptor!,
+                                       resultBytes.baseAddress! + updateLen,
 									   rescount - updateLen,
 									   &finalLen)
 			}
@@ -1002,8 +1003,10 @@ open class CC {
 			var tagLength_ = tagLength
 			var tag = Data(count: tagLength)
 			status = tag.withUnsafeMutableBytes { tagBytes in
-				return CCCryptorGetParameter!(cryptor!, Parameter.authTag.rawValue,
-											  tagBytes, &tagLength_)
+				return CCCryptorGetParameter!(cryptor!,
+                                              Parameter.authTag.rawValue,
+											  tagBytes.baseAddress!,
+                                              &tagLength_)
 			}
 			guard status == noErr else { throw CCError(status) }
 
@@ -1156,7 +1159,7 @@ open class CC {
 			var derKeyLength = 8192
 			var derKey = Data(count: derKeyLength)
 			let status = derKey.withUnsafeMutableBytes { derKeyBytes in
-				return CCRSACryptorExport!(key, derKeyBytes, &derKeyLength)
+				return CCRSACryptorExport!(key, derKeyBytes.baseAddress!, &derKeyLength)
 			}
 			guard status == noErr else { throw CCError(status) }
 
@@ -1345,7 +1348,7 @@ open class CC {
 			var maskedDB = xorData(db, dbMask)
 
 			let zeroBits = 8 * emLength - emBits
-			maskedDB.withUnsafeMutableBytes { maskedDBBytes in
+            maskedDB.withUnsafeMutableBytes { (maskedDBBytes: UnsafeMutableRawBufferPointer) -> Void in
 				maskedDBBytes[0] &= 0xff >> UInt8(zeroBits)
 			}
 
@@ -1559,7 +1562,7 @@ open class CC {
 				var outputLength = 8192
 				var output = Data(count: outputLength)
 				let status = output.withUnsafeMutableBytes { outputBytes in
-					return CCDHGenerateKey!(ref!, outputBytes, &outputLength)
+					return CCDHGenerateKey!(ref!, outputBytes.baseAddress!, &outputLength)
 				}
 				output.count = outputLength
 				guard status != -1 else {
@@ -1727,7 +1730,10 @@ open class CC {
 			var outSize = 8192
 			var result = Data(count:outSize)
 			let status = result.withUnsafeMutableBytes { resultBytes in
-				return CCECCryptorComputeSharedSecret!(privKey, pubKey, resultBytes, &outSize)
+				return CCECCryptorComputeSharedSecret!(privKey,
+                                                       pubKey,
+                                                       resultBytes.baseAddress!,
+                                                       &outSize)
 			}
 			guard status == noErr else { throw CCError(status) }
 
@@ -1813,12 +1819,11 @@ open class CC {
 			var expKeyLength = 8192
 			var expKey = Data(count:expKeyLength)
 			let status = expKey.withUnsafeMutableBytes { expKeyBytes in
-				return CCECCryptorExportKey!(
-					format.rawValue,
-					expKeyBytes,
-					&expKeyLength,
-					type.rawValue,
-					key)
+				return CCECCryptorExportKey!(format.rawValue,
+                                             expKeyBytes.baseAddress!,
+                                             &expKeyLength,
+                                             type.rawValue,
+                                             key)
 			}
 			guard status == noErr else { throw CCError(status) }
 
